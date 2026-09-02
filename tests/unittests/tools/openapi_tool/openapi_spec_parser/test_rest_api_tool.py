@@ -647,6 +647,80 @@ class TestRestApiTool:
     assert request_params["data"] == "test_value"
     assert request_params["headers"]["Content-Type"] == "text/plain"
 
+  @pytest.mark.parametrize(
+      "schema",
+      [
+          OpenAPISchema(
+              oneOf=[
+                  OpenAPISchema(
+                      type="object",
+                      properties={"card": OpenAPISchema(type="string")},
+                  ),
+                  OpenAPISchema(
+                      type="object",
+                      properties={"iban": OpenAPISchema(type="string")},
+                  ),
+              ]
+          ),
+          OpenAPISchema(
+              anyOf=[
+                  OpenAPISchema(
+                      type="object",
+                      properties={"card": OpenAPISchema(type="string")},
+                  ),
+                  OpenAPISchema(
+                      type="object",
+                      properties={"iban": OpenAPISchema(type="string")},
+                  ),
+              ]
+          ),
+          OpenAPISchema(
+              allOf=[
+                  OpenAPISchema(
+                      type="object",
+                      properties={"card": OpenAPISchema(type="string")},
+                  ),
+                  OpenAPISchema(
+                      type="object",
+                      properties={"note": OpenAPISchema(type="string")},
+                  ),
+              ]
+          ),
+          OpenAPISchema(description="untyped body"),
+      ],
+      ids=["oneOf", "anyOf", "allOf", "untyped"],
+  )
+  def test_prepare_request_params_named_full_body(
+      self, schema, sample_endpoint, sample_auth_credential, sample_auth_scheme
+  ):
+    """Bodies the parser names 'body' (oneOf/anyOf/allOf/untyped) are sent."""
+    operation = Operation(
+        operationId="test_op",
+        requestBody=RequestBody(
+            content={"application/json": MediaType(schema=schema)}
+        ),
+    )
+    tool = RestApiTool(
+        name="test_tool",
+        description="Test Tool",
+        endpoint=sample_endpoint,
+        operation=operation,
+        auth_credential=sample_auth_credential,
+        auth_scheme=sample_auth_scheme,
+    )
+    params = tool._operation_parser.get_parameters()
+    body_params = [p for p in params if p.param_location == "body"]
+    assert [(p.py_name, p.original_name) for p in body_params] == [
+        ("body", "body")
+    ]
+
+    request_params = tool._prepare_request_params(
+        params, {"body": {"card": "4111"}}
+    )
+
+    assert request_params["json"] == {"card": "4111"}
+    assert request_params["headers"]["Content-Type"] == "application/json"
+
   def test_prepare_request_params_form_data(
       self, sample_endpoint, sample_auth_scheme, sample_auth_credential
   ):

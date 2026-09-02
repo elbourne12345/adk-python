@@ -458,10 +458,11 @@ class RestApiTool(BaseTool):
             if param.param_location == "body" and param.py_name == "array":
               body_data = kwargs.get("array")
               break
-        else:  # like string
+        else:  # scalar, oneOf/anyOf/allOf or untyped: one param is the body
           for param in parameters:
-            # original_name = '' indicating this param applies to the full body.
-            if param.param_location == "body" and not param.original_name:
+            # OperationParser emits a single body-located parameter for these
+            # schemas: original_name is '' for scalars and 'body' otherwise.
+            if param.param_location == "body":
               body_data = (
                   kwargs.get(param.py_name) if param.py_name in kwargs else None
               )
